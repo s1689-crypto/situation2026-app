@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speaking Practice</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f5f7fa; color: #333;
+        }
+        h1 { text-align: center; color: #2e7d32; }
+        .hidden { display: none !important; }
+        .container {
+            background: #fff; padding: 25px; border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05); margin-top: 20px;
+        }
+        .btn { 
+            display: block; width: 100%; padding: 15px; margin: 12px 0; font-size: 18px; font-weight: bold;
+            cursor: pointer; border: none; border-radius: 10px; text-align: center; text-decoration: none;
+            -webkit-appearance: none; transition: background-color 0.2s;
+        }
+        .btn-primary { background: #4caf50; color: white; }
+        .btn-primary:active { background: #388e3c; }
+        .btn-action { background: #1e88e5; color: white; }
+        .btn-action:active { background: #1565c0; }
+        .btn-secondary { background: #cfd8dc; color: #455a64; }
+        .btn-secondary:active { background: #b0bec5; }
+        
+        .btn-submit-action { background: #ff9800; color: white; margin-top: 20px; }
+        .btn-submit-action:active { background: #f57c00; }
+        .btn-submit-action:disabled { background: #ccc; cursor: not-allowed; }
+
+        .btn-skip {
+            background: transparent; color: #78909c; font-size: 14px; padding: 10px; 
+            margin-top: 20px; text-decoration: underline; width: 100%; border: none; cursor: pointer;
+        }
+        .btn-skip:active { color: #455a64; }
+
+        #question-display { font-size: 26px; font-weight: bold; text-align: center; margin-bottom: 20px; color: #1a237e; }
+        #status-msg { text-align: center; font-weight: bold; margin-top: 15px; min-height: 24px; color: #1e88e5; }
+        .score-good { color: #4caf50; font-size: 24px; font-weight: bold; }
+        .score-bad { color: #f44336; font-size: 24px; font-weight: bold; }
+        
+        #waveform {
+            width: 100%; height: 80px; background-color: #f0f4f8; 
+            border-radius: 8px; margin-top: 15px; border: 1px solid #e0e0e0;
+        }
+        .not-recognized { color: #9e9e9e; font-style: italic; font-size: 0.9em; }
+        .error-box { background: #ffebee; border: 2px solid #f44336; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>Speaking Practice</h1>
+    
+    <div id="loading" style="text-align: center; margin-top: 50px;">
+        <p>問題データを読み込み中...</p>
+    </div>
+
+    <div id="browser-error" class="hidden error-box">
+        <h3 style="color: #d32f2f; margin-top: 0;">⚠️ このブラウザは対応していません</h3>
+        <p style="font-weight: bold;">音声認識機能が使えないアプリで開かれています。</p>
+        <p style="font-size: 14px; color: #555; text-align: left;">
+            ・iPhone / iPad の場合：<br>　必ず標準の <strong>Safari</strong> を開いてアクセスしてください。<br><br>
+            ・Android の場合：<br>　<strong>Google Chrome</strong> で開いてください。
+        </p>
+    </div>
+
+    <div id="title-area" class="container hidden" style="text-align: center;">
+        <h2 style="color: #333;">英会話練習アプリ</h2>
+        <p style="color: #666; margin-bottom: 30px;">マイクの準備はいいですか？</p>
+        <button class="btn btn-primary" onclick="startQuiz()">スタート</button>
+    </div>
+
+    <div id="quiz-area" class="container hidden">
+        <p style="text-align: center; color: #888; font-size: 15px; margin-bottom: 5px; font-weight: bold;">
+            Question <span id="q-id"></span>
+        </p>
+        <p id="question-display">Listen & Answer</p>
+        
+        <button id="btn-listen" class="btn btn-primary">質問文を聞く</button>
+        <button id="btn-speak" class="btn btn-action">英語で答える</button>
+        <div id="status-msg"></div>
+        
+        <canvas id="waveform" class="hidden" width="600" height="160"></canvas>
+
+        <button id="btn-submit" class="btn btn-submit-action hidden">回答完了 ✅</button>
+        <button class="btn-skip" onclick="nextQuestion()">問題をスキップ ⏭️</button>
+    </div>
+
+    <div id="result-area" class="container hidden">
+        <div style="background:#e3f2fd; padding:20px; border-radius:12px; margin-bottom:20px;">
+            <h3 id="judgement-text" style="text-align:center; margin-top:0;"></h3>
+            
+            <p style="font-size: 14px; color: #666; text-align: center; font-weight: bold;">
+                Question <span id="result-q-id"></span>
+            </p>
+            <p><strong>質問文:</strong> <br><span id="question-text" style="color: #333; font-weight: bold;"></span></p>
+            <hr style="border: 0; border-top: 1px dashed #90caf9; margin: 15px 0;">
+
+            <p><strong>あなたの回答:</strong> <br><span id="user-speech" style="font-size: 1.1em;"></span></p>
+            <p><strong>Model Answer:</strong> <br><span id="correct-answer" style="color: #555; font-weight: bold; line-height: 1.5;"></span></p>
+            <hr style="border: 0; border-top: 1px solid #bbdefb; margin: 15px 0;">
+            <p><strong>キーワード:</strong> <br><span id="keywords" style="line-height: 1.5;"></span></p>
+            <p><strong>解説:</strong> <br><span id="explanation"></span></p>
+        </div>
+        
+        <button class="btn btn-primary" onclick="nextQuestion()">次の問題へ</button>
+        <button class="btn btn-secondary" onclick="retryQuestion()" style="font-size: 16px; padding: 12px;">もう一度同じ問題を解く</button>
+        <button class="btn btn-secondary" onclick="goToTitle()" style="font-size: 16px; padding: 12px;">タイトル画面へ</button>
+    </div>
+
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isBrowserSupported = true;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = true; 
+            recognition.continuous = true; 
+        } else {
+            isBrowserSupported = false; 
+        }
+
+        let quizData = [];
+        let currentQuestion = null;
+        let isAnswering = false;       
+        let isSubmitting = false; 
+        let currentTranscript = "";    
+        let silenceTimer = null; 
+        
+        const synth = window.speechSynthesis;
+        let audioCtx, analyser, localStream, drawVisual;
+        const canvas = document.getElementById("waveform");
+        const canvasCtx = canvas.getContext("2d");
+
+        let voices = [];
+        function loadVoices() { voices = synth.getVoices(); }
+        if (speechSynthesis.onvoiceschanged !== undefined) { speechSynthesis.onvoiceschanged = loadVoices; }
+        loadVoices();
+
+        function getBestEnglishVoice() {
+            if (voices.length === 0) voices = synth.getVoices();
+            return voices.find(v => v.name === 'Google US English') ||
+                   voices.find(v => v.lang.startsWith('en') && (v.name.includes('Premium') || v.name.includes('Enhanced'))) ||
+                   voices.find(v => v.name === 'Alex' || v.name === 'Samantha') ||
+                   voices.find(v => v.lang === 'en-US') ||
+                   voices.find(v => v.lang.startsWith('en'));
+        }
+
+        // ==========================================
+        // 【重要】ここにステップ①でコピーしたGASのURLを貼り付けます
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzjcxGS3mpqtdr-e9_u-dRn5wGanQjzjOEjtMrxOH4MMSQ3jOOk__iF4mSPRWy_Egxt/exec";
+
+        window.onload = () => {
+            if (!isBrowserSupported) {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('browser-error').classList.remove('hidden');
+                return;
+            }
+
+            // GASからではなく、外部からURLを使ってデータを引っ張ってくるように変更！
+            fetch(GAS_URL)
+                .then(response => response.json())
+                .then(data => {
+                    quizData = data;
+                    document.getElementById('loading').classList.add('hidden');
+                    if(quizData.length > 0) {
+                        document.getElementById('title-area').classList.remove('hidden');
+                    } else {
+                        document.getElementById('loading').innerHTML = "<p>スプレッドシートにデータがありません。</p>";
+                        document.getElementById('loading').classList.remove('hidden');
+                    }
+                })
+                .catch(error => {
+                    console.error('エラー:', error);
+                    document.getElementById('loading').innerHTML = "<p>データの読み込みに失敗しました。URLを確認してください。</p>";
+                });
+        };
+
+        function resetSpeakBtnUI() {
+            isAnswering = false;
+            isSubmitting = false;
+            currentTranscript = "";
+            if (silenceTimer) clearTimeout(silenceTimer);
+            const btnSpeak = document.getElementById('btn-speak');
+            btnSpeak.innerText = "英語で答える";
+            btnSpeak.className = "btn btn-action"; 
+            const btnSubmit = document.getElementById('btn-submit');
+            btnSubmit.classList.add('hidden'); 
+            btnSubmit.innerText = "回答完了 ✅";
+            btnSubmit.disabled = false;
+            document.getElementById('status-msg').innerHTML = "";
+        }
+
+        function getQuestionData(q) {
+            let data = { id: "-", text: "-", modelAnswer: "-", keywords: "-", explanation: "-" };
+            if (Array.isArray(q)) {
+                data.id = q[0] || "-"; data.text = q[1] || "-"; data.modelAnswer = q[2] || "-";
+                data.keywords = q[3] || "-"; data.explanation = q[4] || "-"; return data;
+            }
+            const ObjectKeys = Object.keys(q);
+            data.id = q['質問番号'] || q['問題番号'] || q['ID'] || q['id'] || (ObjectKeys.length > 0 ? q[ObjectKeys[0]] : "-");
+            data.text = q['質問文'] || q['QuestionText'] || q['Question'] || (ObjectKeys.length > 1 ? q[ObjectKeys[1]] : "-");
+            data.modelAnswer = q['Model Answer'] || q['ModelAnswer'] || q['模範解答'] || q['Answer'] || q['解答'];
+            if (!data.modelAnswer) {
+                for (let k of ObjectKeys) {
+                    let lowerK = k.toLowerCase().replace(/[\s　]/g, '');
+                    if (lowerK.includes('model') || lowerK.includes('answer')) { data.modelAnswer = q[k]; break; }
+                }
+            }
+            if (!data.modelAnswer) data.modelAnswer = (ObjectKeys.length > 2 ? q[ObjectKeys[2]] : "-");
+            data.keywords = q['キーワード'] || q['Keywords'] || q['Keyword'];
+            if (!data.keywords) {
+                for (let k of ObjectKeys) {
+                    let lowerK = k.toLowerCase().replace(/[\s　]/g, '');
+                    if (lowerK.includes('キー') || lowerK.includes('key')) { data.keywords = q[k]; break; }
+                }
+            }
+            if (!data.keywords) data.keywords = (ObjectKeys.length > 3 ? q[ObjectKeys[3]] : "-");
+            data.explanation = q['解説'] || q['Explanation'] || q['意味'];
+            if (!data.explanation) {
+                for (let k of ObjectKeys) {
+                    let lowerK = k.toLowerCase().replace(/[\s　]/g, '');
+                    if (lowerK.includes('解説') || lowerK.includes('explain')) { data.explanation = q[k]; break; }
+                }
+            }
+            if (!data.explanation) data.explanation = (ObjectKeys.length > 4 ? q[ObjectKeys[4]] : "-");
+            return data;
+        }
+
+        function startQuiz() { document.getElementById('title-area').classList.add('hidden'); nextQuestion(); }
+
+        function nextQuestion() {
+            const randomIndex = Math.floor(Math.random() * quizData.length);
+            currentQuestion = quizData[randomIndex];
+            const qData = getQuestionData(currentQuestion);
+            document.getElementById('q-id').innerText = qData.id;
+            document.getElementById('result-area').classList.add('hidden');
+            document.getElementById('quiz-area').classList.remove('hidden');
+            stopVisualizer(); resetSpeakBtnUI(); 
+        }
+
+        function retryQuestion() {
+            document.getElementById('result-area').classList.add('hidden');
+            document.getElementById('quiz-area').classList.remove('hidden');
+            stopVisualizer(); resetSpeakBtnUI();
+        }
+
+        function goToTitle() {
+            document.getElementById('result-area').classList.add('hidden');
+            document.getElementById('quiz-area').classList.add('hidden');
+            document.getElementById('title-area').classList.remove('hidden');
+            stopVisualizer(); resetSpeakBtnUI();
+        }
+
+        document.getElementById('btn-listen').addEventListener('click', () => {
+            synth.cancel(); 
+            const qData = getQuestionData(currentQuestion);
+            const utterance = new SpeechSynthesisUtterance(qData.text);
+            const bestVoice = getBestEnglishVoice();
+            if (bestVoice) { utterance.voice = bestVoice; } else { utterance.lang = 'en-US'; }
+            utterance.rate = 0.85; synth.speak(utterance);
+        });
+
+        function startVisualizer() {
+            canvas.classList.remove('hidden');
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    localStream = stream;
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioCtx.createAnalyser();
+                    const source = audioCtx.createMediaStreamSource(stream);
+                    source.connect(analyser);
+                    analyser.fftSize = 2048;
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    function draw() {
+                        drawVisual = requestAnimationFrame(draw);
+                        analyser.getByteTimeDomainData(dataArray);
+                        canvasCtx.fillStyle = '#f0f4f8';
+                        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+                        canvasCtx.lineWidth = 4;
+                        canvasCtx.strokeStyle = '#1e88e5';
+                        canvasCtx.beginPath();
+                        const sliceWidth = canvas.width * 1.0 / bufferLength;
+                        let x = 0;
+                        for(let i = 0; i < bufferLength; i++) {
+                            const v = dataArray[i] / 128.0;
+                            const y = v * canvas.height / 2;
+                            if(i === 0) { canvasCtx.moveTo(x, y); } else { canvasCtx.lineTo(x, y); }
+                            x += sliceWidth;
+                        }
+                        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+                        canvasCtx.stroke();
+                    }
+                    draw();
+                })
+                .catch(function(err) { console.log("波形取得失敗:", err); });
+            }
+        }
+
+        function stopVisualizer() {
+            if (drawVisual) cancelAnimationFrame(drawVisual);
+            if (localStream) { localStream.getTracks().forEach(track => track.stop()); }
+            if (audioCtx && audioCtx.state !== 'closed') { audioCtx.close(); }
+            canvas.classList.add('hidden');
+        }
+
+        if (isBrowserSupported) {
+            document.getElementById('btn-speak').addEventListener('click', () => {
+                const btnSpeak = document.getElementById('btn-speak');
+                const btnSubmit = document.getElementById('btn-submit');
+                const statusMsg = document.getElementById('status-msg');
+
+                if (!isAnswering) {
+                    isAnswering = true; isSubmitting = false; currentTranscript = "";
+                    btnSpeak.innerText = "回答をリセットする ↺"; btnSpeak.className = "btn btn-secondary"; 
+                    btnSubmit.classList.remove('hidden'); statusMsg.innerHTML = "Listening... 話してください";
+                    try {
+                        startVisualizer(); recognition.start(); 
+                        if (silenceTimer) clearTimeout(silenceTimer);
+                        silenceTimer = setTimeout(() => {
+                            if (isAnswering && !isSubmitting) {
+                                isSubmitting = true; recognition.stop();
+                                document.getElementById('status-msg').innerHTML = "時間切れです。判定しています...";
+                            }
+                        }, 10000);
+                    } catch(e) {}
+                } else {
+                    recognition.stop(); isAnswering = false; stopVisualizer(); resetSpeakBtnUI();
+                    statusMsg.innerHTML = "リセットしました。もう一度「英語で答える」を押してください。";
+                }
+            });
+
+            recognition.onresult = (event) => {
+                if (silenceTimer) clearTimeout(silenceTimer);
+                silenceTimer = setTimeout(() => {
+                    if (isAnswering && !isSubmitting) {
+                        isSubmitting = true; recognition.stop();
+                        document.getElementById('status-msg').innerHTML = "時間切れです。判定しています...";
+                    }
+                }, 10000);
+                let tempTranscript = "";
+                for (let i = event.resultIndex; i < event.results.length; ++i) { tempTranscript += event.results[i][0].transcript; }
+                currentTranscript = tempTranscript;
+            };
+
+            recognition.onerror = (event) => {
+                stopVisualizer();
+                if (event.error === 'not-allowed') {
+                    document.getElementById('status-msg').innerHTML = 
+                        "<div style='color:#d32f2f; font-size:14px; line-height:1.6; background:#ffebee; padding:10px; border-radius:8px; margin-top:10px;'><strong>⚠️ マイクがブロックされています</strong><br>URL横のカギマーク(🔒)からマイクを許可してください。<br>※学校の制限がかかっている場合は、先生に確認してください。</div>";
+                    isAnswering = false; document.getElementById('btn-speak').innerText = "英語で答える";
+                    document.getElementById('btn-speak').className = "btn btn-action"; document.getElementById('btn-submit').classList.add('hidden');
+                }
+            };
+
+            recognition.onend = () => {
+                stopVisualizer(); 
+                if (!isSubmitting && isAnswering) {
+                    if (!document.getElementById('status-msg').innerHTML.includes('ブロック')) {
+                        document.getElementById('status-msg').innerHTML = "音声の入力が止まりました。「回答完了」を押して提出してください。";
+                    }
+                }
+            };
+
+            document.getElementById('btn-submit').addEventListener('click', () => {
+                if (!isAnswering) return;
+                isSubmitting = true; document.getElementById('btn-submit').innerText = "判定中... ⏳"; document.getElementById('btn-submit').disabled = true;
+                try { recognition.stop(); } catch(e) {} stopVisualizer();
+                setTimeout(() => { checkAnswer(currentTranscript); resetSpeakBtnUI(); }, 500);
+            });
+        }
+
+        function cleanTextForScoring(text) {
+            if (!text) return ""; return text.toLowerCase().replace(/[^a-z0-9]/gi, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        function checkAnswer(userText) {
+            document.getElementById('quiz-area').classList.add('hidden'); document.getElementById('result-area').classList.remove('hidden');
+            const qData = getQuestionData(currentQuestion);
+            document.getElementById('result-q-id').innerText = qData.id;
+            document.getElementById('question-text').innerText = qData.text;
+            document.getElementById('correct-answer').innerText = qData.modelAnswer;
+            document.getElementById('keywords').innerText = qData.keywords;
+            document.getElementById('explanation').innerText = qData.explanation;
+            
+            const userSpeechElem = document.getElementById('user-speech');
+            const judgementText = document.getElementById('judgement-text');
+            
+            if (!userText || userText.trim() === "") {
+                userSpeechElem.innerText = "音声を正しく認識できませんでした"; userSpeechElem.className = "not-recognized";
+                judgementText.innerText = "Try Again! 📝"; judgementText.className = "score-bad"; return;
+            }
+
+            userSpeechElem.innerText = userText; userSpeechElem.className = ""; 
+            const cleanUser = cleanTextForScoring(userText);
+            let isCorrect = false;
+
+            if (qData.keywords !== "" && qData.keywords !== "-") {
+                const keywordGroups = qData.keywords.split(',');
+                const allGroupsSatisfied = keywordGroups.every(group => {
+                    const options = group.split('/').map(kw => cleanTextForScoring(kw));
+                    return options.some(opt => opt !== "" && cleanUser.includes(opt));
+                });
+                if (keywordGroups.length > 0 && allGroupsSatisfied) { isCorrect = true; }
+            }
+
+            if(isCorrect) {
+                judgementText.innerText = "Good Answer! ✨"; judgementText.className = "score-good"; userSpeechElem.style.color = "#2e7d32";
+            } else {
+                judgementText.innerText = "Try Again! 📝"; judgementText.className = "score-bad"; userSpeechElem.style.color = "#d32f2f";
+            }
+        }
+    </script>
+</body>
+</html>
